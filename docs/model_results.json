@@ -1,0 +1,149 @@
+{
+  "model": {
+    "company": "Asteron Systems",
+    "ticker": "ASTR",
+    "valuation_date": "2026-10-16",
+    "spot": 96.0,
+    "strike": 105.0,
+    "maturity_years": 1.0,
+    "risk_free_rate": 0.045,
+    "dividend_yield": 0.012,
+    "volatility": 0.28,
+    "volatility_type": "implied",
+    "option_type": "call",
+    "exercise_style": "european",
+    "lattice_steps": 200,
+    "market_bid": 8.1,
+    "market_ask": 8.6,
+    "dcf_value": 106.0,
+    "comps_value": 101.0,
+    "market_mid": 8.35
+  },
+  "analyst_targets": [
+    82.0,
+    88.0,
+    91.0,
+    94.0,
+    96.0,
+    98.0,
+    100.0,
+    101.0,
+    103.0,
+    105.0,
+    108.0,
+    110.0,
+    114.0,
+    118.0,
+    126.0
+  ],
+  "analyst_stats": {
+    "count": 15,
+    "mean": 102.26666666666667,
+    "median": 101.0,
+    "std": 11.719743211878873,
+    "min": 82.0,
+    "max": 126.0
+  },
+  "valuation": {
+    "Current market": 96.0,
+    "Comparable companies": 101.0,
+    "Student DCF": 106.0,
+    "Analyst median": 101.0
+  },
+  "states": [
+    {
+      "state": "Severe bear",
+      "quantile": 0.05,
+      "terminal_price": 86.2,
+      "subjective_weight": 0.1,
+      "option_payoff": 0.0,
+      "weighted_payoff": 0.0
+    },
+    {
+      "state": "Bear",
+      "quantile": 0.25,
+      "terminal_price": 95.0,
+      "subjective_weight": 0.2,
+      "option_payoff": 0.0,
+      "weighted_payoff": 0.0
+    },
+    {
+      "state": "Base",
+      "quantile": 0.5,
+      "terminal_price": 101.0,
+      "subjective_weight": 0.4,
+      "option_payoff": 0.0,
+      "weighted_payoff": 0.0
+    },
+    {
+      "state": "Bull",
+      "quantile": 0.75,
+      "terminal_price": 109.0,
+      "subjective_weight": 0.2,
+      "option_payoff": 4.0,
+      "weighted_payoff": 0.8
+    },
+    {
+      "state": "Tail",
+      "quantile": 0.95,
+      "terminal_price": 120.39999999999999,
+      "subjective_weight": 0.1,
+      "option_payoff": 15.399999999999991,
+      "weighted_payoff": 1.5399999999999991
+    }
+  ],
+  "valuation_weighted_expected_payoff": 2.237034107489453,
+  "belief_decomposition": {
+    "weight_zero_payoff": 0.7,
+    "weight_positive_payoff": 0.30000000000000004,
+    "weighted_terminal_payoff": 2.339999999999999,
+    "discount_factor": 0.9559974818330998
+  },
+  "distribution_comparison": {
+    "analyst_log_dispersion": 0.11428825106416798,
+    "crr_horizon_volatility": 0.28,
+    "message": "Analyst targets are narrower than the volatility input used by CRR."
+  },
+  "lattice": {
+    "price": 8.332308324678896,
+    "u": 1.0199962898353323,
+    "d": 0.9803957229701683,
+    "p_star": 0.49921736500371044,
+    "dt": 0.005
+  },
+  "validation": {
+    "valid_risk_neutral_probability": true,
+    "inside_theoretical_bounds": true,
+    "put_call_parity_pass": true,
+    "convergence_pass": true,
+    "parity_residual": -4.796163466380676e-14,
+    "convergence_gap": -0.0015202185624829667
+  },
+  "convergence": [
+    {
+      "steps": 25,
+      "price": 8.388154142291295
+    },
+    {
+      "steps": 50,
+      "price": 8.316723781126562
+    },
+    {
+      "steps": 100,
+      "price": 8.348544737408599
+    },
+    {
+      "steps": 200,
+      "price": 8.332308324678896
+    },
+    {
+      "steps": 500,
+      "price": 8.330788106116414
+    }
+  ],
+  "comparison": {
+    "Analyst-scenario discounted expected payoff": 2.237034107489453,
+    "CRR risk-neutral lattice value": 8.332308324678896,
+    "Observed market midpoint": 8.35
+  }
+}

@@ -1,0 +1,9 @@
+input_name,value,observation_date,source,method_or_note
+Spot price,96,2026-10-16,Synthetic,Closing price
+Risk-free rate,0.045,2026-10-16,Synthetic,Matched maturity
+Dividend yield,0.012,2026-10-16,Synthetic,Continuous yield
+Volatility,0.28,2026-10-16,Synthetic,Implied volatility
+Option bid,8.10,2026-10-16,Synthetic,Selected contract
+Option ask,8.60,2026-10-16,Synthetic,Selected contract
+DCF value,106,2026-10-16,Student model,Per diluted share
+Comparable value,101,2026-10-16,Student model,Per diluted share

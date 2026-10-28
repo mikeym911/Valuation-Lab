@@ -1,0 +1,2 @@
+company,ticker,valuation_date,spot,strike,maturity_years,risk_free_rate,dividend_yield,volatility,volatility_type,option_type,exercise_style,lattice_steps,market_bid,market_ask,dcf_value,comps_value
+Asteron Systems,ASTR,2026-10-16,96,105,1.0,0.045,0.012,0.28,implied,call,european,200,8.10,8.60,106,101
