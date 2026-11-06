@@ -12,3 +12,384 @@ function render(d){let m=d.model,s=d.states,v=d.validation;$('#meta').textConten
 <article class="card span12"><h2>Professional conclusion</h2><div class="memo-fields">${['Primary conclusion','Economic explanation of the gap','Most consequential uncertainty','Numerical reversal condition'].map(x=>`<label>${x}<textarea rows="4" placeholder="Write the ${x.toLowerCase()}..."></textarea></label>`).join('')}</div><p><button class="button" type="button" onclick="window.print()">Print or save as PDF</button></p></article></section>`;
 $('#calc').addEventListener('click',recalc);$('#reset').addEventListener('click',()=>render(structuredClone(BASE)));
 let cfg={responsive:true,displayModeBar:false};Plotly.newPlot('valuation',[{type:'scatter',mode:'markers+text',x:Object.values(d.valuation),y:Object.keys(d.valuation),text:Object.values(d.valuation).map(money),textposition:'middle right',marker:{size:16,color:['#68798e','#e2a72d','#197ba6','#0fa99d']}}],{margin:{l:150,r:70,t:20,b:50},xaxis:{tickprefix:'$',title:'Equity value per share'},yaxis:{autorange:'reversed'}},cfg);Plotly.newPlot('distribution',[{type:'box',x:d.analyst_targets,orientation:'h',boxpoints:'all',jitter:.4,marker:{color:'#0fa99d'}}],{margin:{l:20,r:20,t:20,b:50},xaxis:{tickprefix:'$',title:'12-month target'},yaxis:{visible:false}},cfg);Plotly.newPlot('comparison',[{type:'bar',x:Object.keys(d.comparison),y:Object.values(d.comparison),text:Object.values(d.comparison).map(money),textposition:'outside',marker:{color:['#0fa99d','#197ba6','#f2762e']}}],{margin:{l:50,r:15,t:30,b:80},yaxis:{tickprefix:'$',rangemode:'tozero'}},cfg);let sens=Array.from({length:25},(_,i)=>Math.max(.05,m.volatility-.15)+i*.3/24).map(x=>({x,y:crr(m.spot,m.strike,m.maturity_years,m.risk_free_rate,x,m.lattice_steps,m.dividend_yield,m.option_type).price}));Plotly.newPlot('sensitivity',[{type:'scatter',mode:'lines',x:sens.map(z=>z.x),y:sens.map(z=>z.y),line:{color:'#197ba6',width:4}}],{margin:{l:55,r:20,t:20,b:55},xaxis:{tickformat:'.0%',title:'Volatility'},yaxis:{tickprefix:'$',title:'CRR value'}},cfg)}
+function greekNodes(model, spot, volatility, rate) {
+const S = Number(spot);
+const K = Number(model.strike);
+const T = Number(model.maturity_years);
+const sigma = Number(volatility);
+const r = Number(rate);
+const q = Number(model.dividend_yield);
+const N = Number(model.lattice_steps);
+const kind = model.option_type;
+const american = model.exercise_style === "american";
+if (
+    ![S, K, T, sigma, r, q].every(Number.isFinite) ||
+    S <= 0 || K <= 0 || T <= 0 ||
+    sigma <= 0 || !Number.isInteger(N) || N < 3
+  ) {
+    throw Error(
+      "Greeks require positive inputs and at least 3 CRR steps."
+    );
+  }
+const dt = T / N;
+const u = Math.exp(sigma * Math.sqrt(dt));
+const d = 1 / u;
+const growth = Math.exp((r - q) * dt);
+const p = (growth - d) / (u - d);
+const disc = Math.exp(-r * dt);
+if (!(d < growth && growth < u && p > 0 && p < 1)) {
+    throw Error(
+      "Invalid risk-neutral probability for the CRR tree."
+    );
+  }
+let values = Array.from(
+    { length: N + 1 },
+    (_, j) => payoff(
+      S * u ** j * d ** (N - j),
+      K,
+      kind
+    )
+  );
+let level1, level2;
+for (let n = N - 1; n >= 0; n--) {
+    values = Array.from(
+      { length: n + 1 },
+      (_, j) => {
+        const hold = disc * (
+          p * values[j + 1] +
+          (1 - p) * values[j]
+        );
+const exercise = payoff(
+          S * u ** j * d ** (n - j),
+          K,
+          kind
+        );
+return american
+          ? Math.max(hold, exercise)
+          : hold;
+      }
+    );
+if (n === 2) level2 = values.slice();
+    if (n === 1) level1 = values.slice();
+  }
+const price = values[0];
+  // DELTA
+  const delta = (
+    level1[1] - level1[0]
+  ) / (S * u - S * d);
+ // GAMMA
+  const deltaUp = (
+    level2[2] - level2[1]
+  ) / (S * u ** 2 - S);
+const deltaDown = (
+    level2[1] - level2[0]
+  ) / (S - S * d ** 2);
+const gamma = (
+    deltaUp - deltaDown
+  ) / (
+    (S * u ** 2 - S * d ** 2) / 2
+  );
+// THETA: daily time decay
+  const theta = (
+    level2[1] - price
+  ) / (2 * dt * 365);
+return { price, delta, gamma, theta };
+}
+// Calculate all five Greeks
+function greekValues(m, spot = Number(m.spot)) {
+  const vol = Number(m.volatility);
+  const r = Number(m.risk_free_rate);
+  const base = greekNodes(m, spot, vol, r);
+  const bump = Math.min(0.01, vol / 2);
+// VEGA: per one percentage-point change
+  const vega = 0.01 * (
+    greekNodes(m, spot, vol + bump, r).price -
+    greekNodes(m, spot, vol - bump, r).price
+  ) / (2 * bump);
+// RHO: per one percentage-point change
+  const rho = (
+    greekNodes(m, spot, vol, r + 0.01).price -
+    greekNodes(m, spot, vol, r - 0.01).price
+  ) / 2;
+return {
+    ...base,
+    vega,
+    rho
+  };
+}
+// Build the visualizations
+function drawGreeks(d) {
+  const m = d.model;
+  const g = greekValues(m);
+  const grid = document.querySelector("#app .grid");
+if (!grid) {
+    throw Error("Could not find the dashboard grid.");
+  }
+const fmt = x =>
+    (x >= 0 ? "+" : "") + x.toFixed(4);
+const greekInfo = [
+    ["Δ", "Delta", "delta", "Per $1 stock move"],
+    ["Γ", "Gamma", "gamma", "Change in Delta per $1"],
+    ["Θ", "Theta", "theta", "Per calendar day"],
+    ["ν", "Vega", "vega", "Per +1% volatility"],
+    ["ρ", "Rho", "rho", "Per +1% interest rate"]
+  ];
+// Add Greek cards and chart containers
+// before the existing Professional conclusion.
+  grid.lastElementChild.insertAdjacentHTML(
+    "beforebegin",
+    '
+    <article class="card span12">
+      <h2>Options Greeks — CRR Risk Analysis</h2>
+
+      <p class="sub">
+        CRR numerical sensitivities, per share.
+      </p>
+
+      <div class="greeks-grid">
+        ${greekInfo.map(
+          ([symbol, name, key, unit]) => `
+          <div class="greek-box">
+            <span class="greek-name">
+              ${symbol} ${name}
+            </span>
+
+            <strong>${fmt(g[key])}</strong>
+            <small>${unit}</small>
+          </div>
+        `).join("")}
+      </div>
+
+      <p class="foot">
+        Delta, Gamma and Theta come from tree nodes.
+        Vega and Rho use symmetric repricing.
+        These are local model estimates.
+      </p>
+    </article>
+
+    <article class="card span6">
+      <h2>Greek Sensitivity Explorer</h2>
+
+      <p class="sub">
+        How option risk changes across stock prices.
+      </p>
+
+      <label class="greek-picker" for="greek-select">
+        Choose a Greek:
+
+        <select id="greek-select">
+          ${greekInfo.map(
+            ([, name, key]) => `
+              <option value="${key}">${name}</option>
+            `
+          ).join("")}
+        </select>
+      </label>
+
+      <div id="greek-plot" class="plot"></div>
+    </article>
+
+    <article class="card span6">
+      <h2>Delta–Gamma vs. CRR Repricing</h2>
+
+      <p class="sub">
+        Compare actual model changes with
+        risk approximations.
+      </p>
+
+      <div id="greek-comparison-plot" class="plot"></div>
+    </article>
+    `
+  );
+
+  const config = {
+    responsive: true,
+    displayModeBar: false
+  };
+
+  // Create 41 stock-price scenarios
+  const curve = Array.from(
+    { length: 41 },
+    (_, i) => {
+      const spot = Number(m.spot) *
+        (0.7 + i * 0.6 / 40);
+
+      return {
+        spot,
+        ...greekValues(m, spot)
+      };
+    }
+  );
+
+  // GRAPH 1: Greek sensitivity
+  function updateExplorer() {
+    const key = document.querySelector(
+      "#greek-select"
+    ).value;
+
+    Plotly.newPlot(
+      "greek-plot",
+      [{
+        x: curve.map(x => x.spot),
+        y: curve.map(x => x[key]),
+        mode: "lines",
+        type: "scatter",
+        name: key.toUpperCase(),
+        line: {
+          color: "#197ba6",
+          width: 3
+        }
+      }],
+      {
+        margin: {
+          l: 65,
+          r: 20,
+          t: 20,
+          b: 55
+        },
+
+        xaxis: {
+          title: "Stock price ($)"
+        },
+
+        yaxis: {
+          title: key.toUpperCase()
+        },
+
+        shapes: [{
+          type: "line",
+          x0: Number(m.spot),
+          x1: Number(m.spot),
+          y0: 0,
+          y1: 1,
+          yref: "paper",
+          line: {
+            color: "#0fa99d",
+            dash: "dash"
+          }
+        }]
+      },
+      config
+    );
+  }
+
+  document.querySelector("#greek-select")
+    .addEventListener("change", updateExplorer);
+
+  updateExplorer();
+
+  // GRAPH 2: Delta-Gamma approximations
+  const S = Number(m.spot);
+
+  const moves = Array.from(
+    { length: 25 },
+    (_, i) => S * (i - 12) * 0.10 / 12
+  );
+
+  const actual = moves.map(
+    dx => greekNodes(
+      m,
+      S + dx,
+      Number(m.volatility),
+      Number(m.risk_free_rate)
+    ).price - g.price
+  );
+
+  const deltaOnly = moves.map(
+    dx => g.delta * dx
+  );
+
+  const deltaGamma = moves.map(
+    dx =>
+      g.delta * dx +
+      0.5 * g.gamma * dx ** 2
+  );
+
+  Plotly.newPlot(
+    "greek-comparison-plot",
+    [
+      {
+        x: moves,
+        y: actual,
+        type: "scatter",
+        mode: "lines",
+        name: "Actual CRR",
+        line: {
+          color: "#197ba6",
+          width: 3
+        }
+      },
+      {
+        x: moves,
+        y: deltaOnly,
+        type: "scatter",
+        mode: "lines",
+        name: "Delta only",
+        line: {
+          color: "#e2a72d",
+          dash: "dash"
+        }
+      },
+      {
+        x: moves,
+        y: deltaGamma,
+        type: "scatter",
+        mode: "lines",
+        name: "Delta + Gamma",
+        line: {
+          color: "#0fa99d",
+          dash: "dot"
+        }
+      }
+    ],
+    {
+      margin: {
+        l: 60,
+        r: 20,
+        t: 50,
+        b: 55
+      },
+
+      xaxis: {
+        title: "Stock price change ($)"
+      },
+
+      yaxis: {
+        title: "Option value change ($)"
+      },
+
+      legend: {
+        orientation: "h",
+        x: 0,
+        y: 1.25
+      }
+    },
+    config
+  );
+}
+
+
+// Connect Greeks to the existing dashboard
+// without deleting or replacing its render function.
+const originalValuationRender = render;
+
+render = function(d) {
+  originalValuationRender(d);
+
+  try {
+    drawGreeks(d);
+  } catch (err) {
+    console.error("Greeks section failed:", err);
+
+    const grid = document.querySelector("#app .grid");
+
+    if (grid) {
+      const note = document.createElement("article");
+      note.className = "card span12";
+      note.textContent =
+        "Greek charts unavailable: " + err.message;
+
+      grid.appendChild(note);
+    }
+  }
+};
