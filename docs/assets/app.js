@@ -138,7 +138,7 @@ const greekInfo = [
 // before the existing Professional conclusion.
   grid.lastElementChild.insertAdjacentHTML(
     "beforebegin",
-    '
+    `
     <article class="card span12">
       <h2>Options Greeks — CRR Risk Analysis</h2>
 
